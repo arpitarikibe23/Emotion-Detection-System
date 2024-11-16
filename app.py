@@ -1,272 +1,86 @@
 
 import streamlit as st
-import cv2
-from transformers import pipeline
+import google.generativeai as genai
+import os
 from PIL import Image
 import numpy as np
-import streamlit as st
+from fer import FER
 import cv2
-from transformers import pipeline
-from PIL import Image
-import numpy as np
-st.title("Emotion Detection System")
-st.write("Upload an image or video to analyze emotions using Generative AI and LLMs.")
-upload_type = st.radio("Choose input type:", ("Image", "Video"))
-emotion_detector = pipeline("sentiment-analysis", model="mrm8488/t5-base-finetuned-emotion")
-def analyze_emotion_image(image):
-    image = Image.fromarray(image)
-    emotion = emotion_detector(image)[0]  # Get prediction from the model
-    return emotion['label'], emotion['score']
-def analyze_emotion_video(video_path):
-    cap = cv2.VideoCapture(video_path)
-    emotions = []
-    
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        label, score = analyze_emotion_image(frame)
-        emotions.append(label)
-        
-        st.image(frame, channels="BGR")
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
+from dotenv import load_dotenv
 
-    cap.release()
-if upload_type == "Image":
-    uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_image is not None:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        
-        label, score = analyze_emotion_image(np.array(image))
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
-elif upload_type == "Video":
-    uploaded_video = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
-    
-    if uploaded_video is not None:
-        st.video(uploaded_video)
-        
-        with open("temp_video.mp4", "wb") as f:
-            f.write(uploaded_video.read())
-        
-        analyze_emotion_video("temp_video.mp4")
+# Load API key from .env file
+load_dotenv()
 
-#streamlit run app.py
-import streamlit as st
-import cv2
-from transformers import pipeline
-from PIL import Image
-import numpy as np
+# Configure the PaLM API with the correct API key
+api_key = os.getenv("AIzaSyAyL-cstbn9eoY-90XcVnGCB4Qnug2ztVA")
+if api_key:
+    genai.configure(api_key=api_key)
+else:
+    st.error("API Key not found. Please set it in the .env file.")
 
-st.title("Emotion Detection System")
-st.write("Upload an image or video to analyze emotions using Generative AI and LLMs.")
-upload_type = st.radio("Choose input type:", ("Image", "Video"))
+# Function to analyze image for depression and emotion detection using FER
+def detect_emotions(image):
+    # Ensure the image has 3 channels (convert RGBA to RGB if necessary)
+    if image.mode == "RGBA":
+        image = image.convert("RGB")
+    elif image.mode != "RGB":
+        st.warning("Uploaded image has an unsupported mode. Converting to RGB.")
+        image = image.convert("RGB")
 
-emotion_detector = pipeline("sentiment-analysis", model="mrm8488/t5-base-finetuned-emotion")
+    # Convert the image to a NumPy array
+    image_np = np.array(image)
 
-def analyze_emotion_image(image):
-    image = Image.fromarray(image)
-    emotion = emotion_detector(image)[0]
-    return emotion['label'], emotion['score']
+    # Use FER to detect emotions
+    detector = FER(mtcnn=True)
+    emotions = detector.detect_emotions(image_np)
 
-def analyze_emotion_video(video_path):
-    cap = cv2.VideoCapture(video_path)
-    emotions = []
-    
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        label, score = analyze_emotion_image(frame)
-        emotions.append(label)
-        
-        st.image(frame, channels="BGR")
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
+    if emotions:
+        return emotions[0]['emotions']
+    return None
 
-    cap.release()
+# Function to analyze detected emotions with a summary
+def analyze_emotions(emotions):
+    emotion_analysis = ", ".join([f"{emotion}: {score:.2f}" for emotion, score in emotions.items()])
+    summary = f"The detected emotions are: {emotion_analysis}. Based on these emotions, consider seeking expert advice if needed."
+    return summary
 
-if upload_type == "Image":
-    uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_image is not None:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        
-        label, score = analyze_emotion_image(np.array(image))
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
+# Streamlit App
+st.title("AI-Powered Depression and Emotion Detection System")
+st.text("Use the AI system for detecting depression and emotions from images and live video.")
 
-elif upload_type == "Video":
-    uploaded_video = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
-    
-    if uploaded_video is not None:
-        st.video(uploaded_video)
-        
-        with open("temp_video.mp4", "wb") as f:
-            f.write(uploaded_video.read())
-        
-        analyze_emotion_video("temp_video.mp4")
-import streamlit as st
-import cv2
-from transformers import pipeline
-from PIL import Image
-import numpy as np
+# Tabs for different functionalities
+tab1, tab2 = st.tabs(["Image Analysis", "Live Video Analysis"])
 
-st.title("Emotion Detection System")
-st.write("Upload an image or video to analyze emotions using Generative AI and LLMs.")
-upload_type = st.radio("Choose input type:", ("Image", "Video"))
+with tab1:
+    st.header("Image Analysis")
+    uploaded_file = st.file_uploader("Upload an image for analysis", type=["jpg", "jpeg", "png"])
+    submit_image = st.button('Analyze Image')
 
-emotion_detector = pipeline("sentiment-analysis", model="mrm8488/t5-base-finetuned-emotion")
+    if submit_image:
+        if uploaded_file:
+            image = Image.open(uploaded_file)
+            emotions = detect_emotions(image)
+            if emotions:
+                response = analyze_emotions(emotions)
+                st.write(response)
+            else:
+                st.write("No emotions detected in the image.")
 
-def analyze_emotion_image(image):
-    image = Image.fromarray(image)
-    emotion = emotion_detector(image)[0]
-    return emotion['label'], emotion['score']
+with tab2:
+    st.header("Live Video Analysis")
+    capture_frame = st.button('Capture and Analyze Frame')
+    if capture_frame:
+        video_capture = cv2.VideoCapture(0)
+        ret, frame = video_capture.read()
+        if ret:
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(frame_rgb)
+            emotions = detect_emotions(image)
+            if emotions:
+                response = analyze_emotions(emotions)
+                st.write(response)
+            else:
+                st.write("No emotions detected.")
+        else:
+            st.write("Failed to capture video frame.")
 
-def analyze_emotion_video(video_path):
-    cap = cv2.VideoCapture(video_path)
-    emotions = []
-    
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        label, score = analyze_emotion_image(frame)
-        emotions.append(label)
-        
-        st.image(frame, channels="BGR")
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
-
-    cap.release()
-
-if upload_type == "Image":
-    uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_image is not None:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        
-        label, score = analyze_emotion_image(np.array(image))
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
-
-elif upload_type == "Video":
-    uploaded_video = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
-    
-    if uploaded_video is not None:
-        st.video(uploaded_video)
-        
-        with open("temp_video.mp4", "wb") as f:
-            f.write(uploaded_video.read())
-        
-        analyze_emotion_video("temp_video.mp4")
-import streamlit as st
-import cv2
-from transformers import pipeline
-from PIL import Image
-import numpy as np
-
-st.title("Emotion Detection System")
-st.write("Upload an image or video to analyze emotions using Generative AI and LLMs.")
-upload_type = st.radio("Choose input type:", ("Image", "Video"))
-
-emotion_detector = pipeline("sentiment-analysis", model="mrm8488/t5-base-finetuned-emotion")
-
-def analyze_emotion_image(image):
-    image = Image.fromarray(image)
-    emotion = emotion_detector(image)[0]
-    return emotion['label'], emotion['score']
-
-def analyze_emotion_video(video_path):
-    cap = cv2.VideoCapture(video_path)
-    emotions = []
-    
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        label, score = analyze_emotion_image(frame)
-        emotions.append(label)
-        
-        st.image(frame, channels="BGR")
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
-
-    cap.release()
-
-if upload_type == "Image":
-    uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_image is not None:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        
-        label, score = analyze_emotion_image(np.array(image))
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
-
-elif upload_type == "Video":
-    uploaded_video = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
-    
-    if uploaded_video is not None:
-        st.video(uploaded_video)
-        
-        with open("temp_video.mp4", "wb") as f:
-            f.write(uploaded_video.read())
-        
-        analyze_emotion_video("temp_video.mp4")
-import streamlit as st
-import cv2
-from transformers import pipeline
-from PIL import Image
-import numpy as np
-
-st.title("Emotion Detection System")
-st.write("Upload an image or video to analyze emotions using Generative AI and LLMs.")
-upload_type = st.radio("Choose input type:", ("Image", "Video"))
-
-emotion_detector = pipeline("sentiment-analysis", model="mrm8488/t5-base-finetuned-emotion")
-
-def analyze_emotion_image(image):
-    image = Image.fromarray(image)
-    emotion = emotion_detector(image)[0]
-    return emotion['label'], emotion['score']
-
-def analyze_emotion_video(video_path):
-    cap = cv2.VideoCapture(video_path)
-    emotions = []
-    
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        label, score = analyze_emotion_image(frame)
-        emotions.append(label)
-        
-        st.image(frame, channels="BGR")
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
-
-    cap.release()
-
-if upload_type == "Image":
-    uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_image is not None:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        
-        label, score = analyze_emotion_image(np.array(image))
-        st.write(f"Detected Emotion: {label} (Score: {score:.2f})")
-
-elif upload_type == "Video":
-    uploaded_video = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
-    
-    if uploaded_video is not None:
-        st.video(uploaded_video)
-        
-        with open("temp_video.mp4", "wb") as f:
-            f.write(uploaded_video.read())
-        
-        analyze_emotion_video("temp_video.mp4")
