@@ -1,7 +1,9 @@
 
 streamlit
-transformers
-pillow
+PyPDF2
+google.generativeai
+python-dotenv
+FPDF
 opencv-python
-numpy
-torch
+fer
+tensorflow
