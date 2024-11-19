@@ -1,9 +1,8 @@
-streamlit
-pillow
-numpy
-fer
-tensorflow
-mtcnn
-python-dotenv
-opencv-python-headless
 
+streamlit==1.22.0
+Pillow==9.5.0
+numpy==1.24.3
+fer==22.5.1
+opencv-python-headless==4.7.0.72
+python-dotenv==1.0.0
+tensorflow==2.14.0
