@@ -120,4 +120,3 @@ with tab2:
             # Release the webcam after processing
             video_capture.release()
             cv2.destroyAllWindows()
-
