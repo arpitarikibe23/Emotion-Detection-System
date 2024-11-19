@@ -1,8 +1,9 @@
 streamlit
-PyPDF2
-google.generativeai
-python-dotenv
-FPDF
-opencv-python
+pillow
+numpy
 fer
 tensorflow
+mtcnn
+python-dotenv
+opencv-python-headless
+
