@@ -6,7 +6,8 @@ from fer import FER
 import cv2
 from dotenv import load_dotenv
 import tensorflow as tf
-from torchvision.ops import nms
+# Removed import of nms since it's not used in the code
+# from torchvision.ops import nms  # Removed this line
 
 # FER emotion detector
 detector = FER(mtcnn=False)
@@ -125,5 +126,6 @@ with tab2:
                     # Release the webcam after processing
                     video_capture.release()
                     cv2.destroyAllWindows()
-
+ 
+                
                        
