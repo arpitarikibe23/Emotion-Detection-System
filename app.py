@@ -6,11 +6,6 @@ from fer import FER
 import cv2
 from dotenv import load_dotenv
 import tensorflow as tf
-# Removed import of nms since it's not used in the code
-# from torchvision.ops import nms  # Removed this line
-
-# FER emotion detector
-detector = FER(mtcnn=False)
 
 # Print TensorFlow version for debugging
 print(tf.__version__)
@@ -30,7 +25,10 @@ def detect_emotions(image):
     # Convert the image to a NumPy array
     image_np = np.array(image)
 
-    # Initialize FER detector with MTCNN disabled
+    # Initialize FER detector
+    detector = FER(mtcnn=True)
+
+    # Detect emotions in the image
     emotions = detector.detect_emotions(image_np)
 
     if emotions:
@@ -93,39 +91,33 @@ with tab2:
     if capture_frame:
         # Initialize the webcam
         video_capture = cv2.VideoCapture(0)  # 0 for the default camera
-
         if not video_capture.isOpened():
             st.error("Failed to access the webcam. Ensure you have allowed camera access in your browser.")
         else:
             with st.spinner("Accessing webcam..."):
-                try:
-                    # Read a single frame from the webcam
-                    ret, frame = video_capture.read()
-                    if ret:
-                        # Convert frame to RGB format
-                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # Read a single frame from the webcam
+                ret, frame = video_capture.read()
+                if ret:
+                    # Convert frame to RGB format
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                        # Display the frame
-                        st.image(frame_rgb, caption="Live Video Frame", use_container_width=True)
+                    # Display the frame
+                    st.image(frame_rgb, caption="Live Video Frame", use_container_width=True)
 
-                        # Convert frame to a PIL Image for processing
-                        image = Image.fromarray(frame_rgb)
+                    # Convert frame to a PIL Image for processing
+                    image = Image.fromarray(frame_rgb)
 
-                        # Detect emotions
-                        emotions = detect_emotions(image)
-                        if emotions:
-                            response = analyze_emotions_with_advice(emotions)
-                            st.write(response)
-                        else:
-                            st.warning("No emotions detected in the frame.")
+                    # Detect emotions
+                    emotions = detect_emotions(image)
+                    if emotions:
+                        response = analyze_emotions_with_advice(emotions)
+                        st.write(response)
                     else:
-                        st.error("Failed to capture video frame. Check if another app is using the camera.")
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
-                finally:
-                    # Release the webcam after processing
-                    video_capture.release()
-                    cv2.destroyAllWindows()
- 
-                
-                       
+                        st.warning("No emotions detected in the frame.")
+                else:
+                    st.error("Failed to capture video frame. Check if another app is using the camera.")
+
+            # Release the webcam after processing (no need for cv2.destroyAllWindows)
+            video_capture.release()
+
+
