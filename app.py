@@ -13,7 +13,10 @@ print(tf.__version__)
 # Load API key from .env file
 load_dotenv()
 
-# Function to analyze image for depression and emotion detection using FER
+# Import DeepFace once at the top of the script
+from deepface import DeepFace
+
+# Function to analyze image for depression and emotion detection using DeepFace
 def detect_emotions(image):
     # Ensure the image has 3 channels (convert RGBA to RGB if necessary)
     if image.mode == "RGBA":
@@ -25,12 +28,17 @@ def detect_emotions(image):
     # Convert the image to a NumPy array
     image_np = np.array(image)
 
-    # Initialize FER detector
+    # Use DeepFace to detect emotions
+    try:
+        analysis = DeepFace.analyze(image_np, actions=['emotion'], enforce_detection=False)
+        if analysis:
+            return analysis[0]['emotions']
+    except Exception as e:
+        st.error(f"Error in emotion detection using DeepFace: {str(e)}")
+
+    # Fallback to FER if DeepFace fails
     detector = FER(mtcnn=True)
-
-    # Detect emotions in the image
     emotions = detector.detect_emotions(image_np)
-
     if emotions:
         return emotions[0]['emotions']
     return None
@@ -119,5 +127,3 @@ with tab2:
 
             # Release the webcam after processing (no need for cv2.destroyAllWindows)
             video_capture.release()
-
-
