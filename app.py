@@ -1,129 +1,91 @@
 import streamlit as st
-import os
 from PIL import Image
 import numpy as np
 from fer import FER
-import cv2
 from dotenv import load_dotenv
+from deepface import DeepFace
+import cv2
 import tensorflow as tf
 
-# Print TensorFlow version for debugging
-print(tf.__version__)
-
-# Load API key from .env file
+# Load environment variables
 load_dotenv()
 
-# Import DeepFace once at the top of the script
-from deepface import DeepFace
+# Display TensorFlow version for debugging
+st.write(f"TensorFlow Version: {tf.__version__}")
 
-# Function to analyze image for depression and emotion detection using DeepFace
+# Function to detect emotions using DeepFace and FER as fallback
 def detect_emotions(image):
-    # Ensure the image has 3 channels (convert RGBA to RGB if necessary)
-    if image.mode == "RGBA":
-        image = image.convert("RGB")
-    elif image.mode != "RGB":
-        st.warning("Uploaded image has an unsupported mode. Converting to RGB.")
-        image = image.convert("RGB")
+    if image.mode != "RGB":
+        image = image.convert("RGB")  # Convert image to RGB if necessary
 
-    # Convert the image to a NumPy array
     image_np = np.array(image)
 
-    # Use DeepFace to detect emotions
     try:
-        analysis = DeepFace.analyze(image_np, actions=['emotion'], enforce_detection=False)
+        # Analyze emotions using DeepFace
+        analysis = DeepFace.analyze(image_np, actions=["emotion"], enforce_detection=False)
         if analysis:
-            return analysis[0]['emotions']
+            return analysis[0]["emotions"]
     except Exception as e:
-        st.error(f"Error in emotion detection using DeepFace: {str(e)}")
+        st.error(f"DeepFace Error: {e}")
 
-    # Fallback to FER if DeepFace fails
+    # Fallback to FER
     detector = FER(mtcnn=True)
     emotions = detector.detect_emotions(image_np)
     if emotions:
-        return emotions[0]['emotions']
+        return emotions[0]["emotions"]
+
     return None
 
-# Function to analyze detected emotions with a summary and advice
+# Function to generate analysis and advice based on emotions
 def analyze_emotions_with_advice(emotions):
-    emotion_analysis = ", ".join([f"{emotion}: {score:.2f}" for emotion, score in emotions.items()])
-    summary = f"The detected emotions are: {emotion_analysis}."
-
-    # Generate advice based on emotions
     dominant_emotion = max(emotions, key=emotions.get)
-    advice = ""
-    if dominant_emotion == "sad":
-        advice = "You seem to be feeling sad. Consider speaking to a friend or engaging in an activity you enjoy."
-    elif dominant_emotion == "happy":
-        advice = "You seem happy! Keep spreading positivity and cherish this moment."
-    elif dominant_emotion == "neutral":
-        advice = "You appear neutral. If you feel like it, take a moment to reflect on your thoughts."
-    elif dominant_emotion in ["angry", "disgust"]:
-        advice = "It seems like you might be feeling angry or frustrated. Try to relax, take deep breaths, and focus on calming activities."
-    elif dominant_emotion == "fear":
-        advice = "You may be feeling fear. Take a moment to ensure your safety and consider sharing your feelings with someone you trust."
-    elif dominant_emotion == "surprise":
-        advice = "You seem surprised! Embrace the unexpected and enjoy the moment."
+    advice = {
+        "happy": "You seem happy! Keep spreading positivity.",
+        "sad": "Feeling sad? Try connecting with a friend or activity.",
+        "neutral": "Feeling neutral? Take a moment to reflect.",
+        "angry": "Feeling angry? Deep breaths can help.",
+        "surprise": "Surprised? Embrace the unexpected!",
+        "fear": "Feeling fear? Ensure safety and talk to someone you trust."
+    }.get(dominant_emotion, "Stay positive and take care!")
 
-    return summary + "\n\nAdvice: " + advice
+    emotion_summary = ", ".join([f"{k}: {v:.2f}" for k, v in emotions.items()])
+    return f"Emotions detected: {emotion_summary}\n\nAdvice: {advice}"
 
-# Streamlit App
-st.title("AI-Powered Depression and Emotion Detection System")
-st.text("Use the AI system for detecting depression and emotions from images and live video.")
-
-# Tabs for different functionalities
+# Streamlit Interface
+st.title("Emotion Detection System")
 tab1, tab2 = st.tabs(["Image Analysis", "Live Video Analysis"])
 
-# Image Analysis Tab
 with tab1:
     st.header("Image Analysis")
-    uploaded_file = st.file_uploader("Upload an image for analysis", type=["jpg", "jpeg", "png"])
-    submit_image = st.button('Analyze Image')
-
-    if submit_image:
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png"])
+    if st.button("Analyze Image"):
         if uploaded_file:
             image = Image.open(uploaded_file)
             emotions = detect_emotions(image)
             if emotions:
-                response = analyze_emotions_with_advice(emotions)
-                st.write(response)
+                result = analyze_emotions_with_advice(emotions)
+                st.write(result)
             else:
-                st.write("No emotions detected in the image.")
+                st.error("No emotions detected.")
         else:
-            st.warning("Please upload an image before submitting.")
+            st.warning("Please upload an image.")
 
-# Live Video Analysis Tab
 with tab2:
     st.header("Live Video Analysis")
-    capture_frame = st.button('Start Live Video and Analyze Frame')
-
-    if capture_frame:
-        # Initialize the webcam
-        video_capture = cv2.VideoCapture(0)  # 0 for the default camera
-        if not video_capture.isOpened():
-            st.error("Failed to access the webcam. Ensure you have allowed camera access in your browser.")
-        else:
-            with st.spinner("Accessing webcam..."):
-                # Read a single frame from the webcam
-                ret, frame = video_capture.read()
-                if ret:
-                    # Convert frame to RGB format
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-                    # Display the frame
-                    st.image(frame_rgb, caption="Live Video Frame", use_container_width=True)
-
-                    # Convert frame to a PIL Image for processing
-                    image = Image.fromarray(frame_rgb)
-
-                    # Detect emotions
-                    emotions = detect_emotions(image)
-                    if emotions:
-                        response = analyze_emotions_with_advice(emotions)
-                        st.write(response)
-                    else:
-                        st.warning("No emotions detected in the frame.")
+    if st.button("Start Video Analysis"):
+        video_capture = cv2.VideoCapture(0)
+        if video_capture.isOpened():
+            ret, frame = video_capture.read()
+            if ret:
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                st.image(frame_rgb, caption="Captured Frame", use_column_width=True)
+                image = Image.fromarray(frame_rgb)
+                emotions = detect_emotions(image)
+                if emotions:
+                    result = analyze_emotions_with_advice(emotions)
+                    st.write(result)
                 else:
-                    st.error("Failed to capture video frame. Check if another app is using the camera.")
-
-            # Release the webcam after processing (no need for cv2.destroyAllWindows)
+                    st.warning("No emotions detected.")
             video_capture.release()
+        else:
+            st.error("Failed to access webcam.")
